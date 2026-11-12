@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧選物店 - 雲端同步大盤輪刮樂 APP Pro v19</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QRCode.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        .grid-layout {
+            display: grid;
+            gap: 4px;
+            margin: 0 auto;
+            width: 100%;
+            grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+        }
+        .scratch-cell {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .prize-layer {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1px;
+            text-align: center;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 6px;
+            line-height: 1.1;
+            word-break: break-all;
+            font-size: 10px;
+        }
+        .canvas-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            touch-action: none;
+            z-index: 10;
+        }
+        .answer-grid {
+            display: grid;
+            gap: 4px;
+            max-height: 360px;
+            overflow-y: auto;
+            grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+        }
+        .answer-cell {
+            aspect-ratio: 1 / 1;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1px;
+            font-size: 9px;
+            text-align: center;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-slate-800/90 backdrop-blur sticky top-0 z-50 border-b border-slate-700">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-cloud-arrow-up text-amber-400 text-xl"></i>
+                <span class="font-bold text-lg text-white">智慧選物店 - 雲端同步刮刮樂系統 v19</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span id="sync-status" class="text-[11px] bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-600 hidden md:inline-block">
+                    <i class="fa-solid fa-circle text-slate-400 mr-1 text-[8px]"></i> 雲端同步就緒
+                </span>
+                <button id="btn-view-admin" onclick="switchViewWithPassword('admin')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition bg-amber-500 text-slate-950 font-bold hover:bg-amber-400">
+                    <i class="fa-solid fa-lock mr-1"></i> 店家後台
+                </button>
+                <button id="btn-view-customer" onclick="switchView('customer')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition bg-slate-700 text-slate-200 hover:bg-slate-600">
+                    <i class="fa-solid fa-mobile-screen mr-1"></i> 顧客視角
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6">
+
+        <!-- ================= 後台管理頁面 ================= -->
+        <section id="admin-view" class="space-y-6">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-amber-400 flex items-center">
+                        <i class="fa-solid fa-sliders mr-2"></i> 活動與大盤雲端同步參數設定 (v19)
+                    </h2>
+                    <span class="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-lg border border-emerald-500/30 font-medium">
+                        <i class="fa-solid fa-cloud mr-1"></i> 手機端格數自適應優化
+                    </span>
+                </div>
+                
+                <!-- 基本設定 -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-slate-300">活動名稱</label>
+                        <input type="text" id="cfg-title" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-400" value="🎁 夾物達人專屬幸運大刮刮樂">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-slate-300">總網格數量 (大盤格數)</label>
+                        <select id="cfg-grid-size" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+                            <option value="20">20 格</option>
+                            <option value="40" selected>40 格</option>
+                            <option value="60">60 格</option>
+                            <option value="80">80 格</option>
+                            <option value="100">100 格</option>
+                            <option value="120">120 格</option>
+                            <option value="160">160 格</option>
+                            <option value="200">200 格</option>
+                            <option value="300">300 格</option>
+                            <option value="400">400 格</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-slate-300">換算比例 (幾樣夾物 = 1 刮)</label>
+                        <input type="number" id="cfg-ratio" min="1" max="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-400" value="1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-amber-300 font-bold flex items-center">
+                            <i class="fa-solid fa-key mr-1"></i> 後台解鎖密碼
+                        </label>
+                        <input type="password" id="cfg-admin-pwd" class="w-full bg-slate-900 border border-amber-500/50 rounded-lg px-3 py-2 text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400" value="8888" placeholder="預設 8888">
+                    </div>
+                </div>
+
+                <!-- 功能開關 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-slate-900/90 p-4 rounded-xl border border-amber-500/40 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-shield-halved text-amber-400 text-lg"></i>
+                                <div>
+                                    <span class="font-bold text-sm text-white block">防搶刮保護機制（15秒獨佔鎖）</span>
+                                    <span class="text-xs text-slate-400 block">防止多人同時爭搶同一格</span>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="cfg-lock-enable" class="sr-only peer" checked>
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/90 p-4 rounded-xl border border-amber-500/40 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-user-tag text-amber-400 text-lg"></i>
+                                <div>
+                                    <span class="font-bold text-sm text-white block">抽獎前詢問 LINE 暱稱</span>
+                                    <span class="text-xs text-slate-400 block">確認抽數後跳出輸入 LINE 暱稱視窗</span>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="cfg-ask-line-name" class="sr-only peer" checked>
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 顏色與視覺風格設定 -->
+                <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 space-y-4">
+                    <h3 class="text-sm font-bold text-amber-300 flex items-center">
+                        <i class="fa-solid fa-palette mr-2"></i> 刮刮樂外觀顏色、字體大小與加粗設定
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium mb-1 text-slate-300">1. 刮刮卡外漆顏色 (5種金屬塗層)</label>
+                            <select id="cfg-coat-color" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                                <option value="#94a3b8">經典銀金屬漆 (Silver Metallic)</option>
+                                <option value="#f59e0b">尊爵金屬金 (Luxury Gold)</option>
+                                <option value="#3b82f6">炫彩寶石藍 (Sapphire Blue)</option>
+                                <option value="#10b981">奢華翡翠綠 (Emerald Green)</option>
+                                <option value="#8b5cf6">典雅紫金漆 (Royal Purple)</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-xs font-medium mb-1 text-slate-300">2. 刮刮卡底色 (5種淡色系背景)</label>
+                            <select id="cfg-bg-color" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                                <option value="#fffbeb">暖陽奶油黃 (#fffbeb)</option>
+                                <option value="#fff1f2">柔和櫻花粉 (#fff1f2)</option>
+                                <option value="#f0f9ff">靜謐天空藍 (#f0f9ff)</option>
+                                <option value="#f0fdf4">薄荷清新綠 (#f0fdf4)</option>
+                                <option value="#ffffff">典雅簡約白 (#ffffff)</option>
+                            </select>
+                        </div>
+
+                        <!-- 中獎字體 -->
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
+                            <span class="block text-xs font-bold text-amber-400">🎉 中獎字體設定</span>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-[11px] text-slate-400 mb-1">顏色 (15選)</label>
+                                    <select id="cfg-win-font-color" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                                        <option value="#dc2626">火焰紅</option>
+                                        <option value="#d97706">璀璨金</option>
+                                        <option value="#0f172a">曜石黑</option>
+                                        <option value="#2563eb">寶石藍</option>
+                                        <option value="#16a34a">翡翠綠</option>
+                                        <option value="#7c3aed">紫羅蘭</option>
+                                        <option value="#e11d48">玫瑰粉</option>
+                                        <option value="#78350f">深深棕</option>
+                                        <option value="#475569">酷炫灰</option>
+                                        <option value="#065f46">暗綠色</option>
+                                        <option value="#1e3a8a">深藍色</option>
+                                        <option value="#ea580c">鮮橘色</option>
+                                        <option value="#9333ea">霓虹紫</option>
+                                        <option value="#0891b2">海洋青</option>
+                                        <option value="#881337">栗褐色</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-slate-400 mb-1">字體大小</label>
+                                    <select id="cfg-win-font-size" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                                        <option value="9px">小 (9px)</option>
+                                        <option value="11px" selected>中 (11px)</option>
+                                        <option value="13px">大 (13px)</option>
+                                        <option value="15px">特大 (15px)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-slate-400 mb-1">是否加粗</label>
+                                    <select id="cfg-win-font-weight" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                                        <option value="bold" selected>加粗 (Bold)</option>
+                                        <option value="normal">一般 (Normal)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 未中獎字體 -->
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
+                            <span class="block text-xs font-bold text-slate-400">🍀 未中獎字體設定</span>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-[11px] text-slate-400 mb-1">顏色 (15選)</label>
+                                    <select id="cfg-lose-font-color" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                                        <option value="#64748b" selected>酷炫灰</option>
+                                        <option value="#0f172a">曜石黑</option>
+                                        <option value="#d97706">璀璨金</option>
+                                        <option value="#dc2626">火焰紅</option>
+                                        <option value="#2563eb">寶石藍</option>
+                                        <option value="#16a34a">翡翠綠</option>
+                                        <option value="#7c3aed">紫羅蘭</option>
+                                        <option value="#e11d48">玫瑰粉</option>
+                                        <option value="#78350f">深深棕</option>
+                                        <option value="#065f46">暗綠色</option>
+                                        <option value="#1e3a8a">深藍色</option>
+                                        <option value="#ea580c">鮮橘色</option>
+                                        <option value="#9333ea">霓虹紫</option>
+                                        <option value="#0891b2">海洋青</option>
+                                        <option value="#881337">栗褐色</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-slate-400 mb-1">字體大小</label>
+                                    <select id="cfg-lose-font-size" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                                        <option value="8px">微小 (8px)</option>
+                                        <option value="10px" selected>中 (10px)</option>
+                                        <option value="12px">大 (12px)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-slate-400 mb-1">是否加粗</label>
+                                    <select id="cfg-lose-font-weight" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                                        <option value="normal" selected>一般 (Normal)</option>
+                                        <option value="bold">加粗 (Bold)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google 雲端紀錄 webhook -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-amber-500/40 space-y-3">
+                    <h3 class="text-sm font-bold text-amber-300 flex items-center">
+                        <i class="fa-brands fa-google-drive mr-2"></i> Google 雲端試算表 Webhook 網址 (啟用跨裝置即時同步)
+                    </h3>
+                    <input type="text" id="cfg-webhook" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400">
+                    <p class="text-[11px] text-slate-400">填入 Apps Script 部署後的 Web App 網址。所有裝置（LINE、手機瀏覽器、電腦）將會自動讀寫同一個雲端資料庫！</p>
+                </div>
+
+                <!-- 獎項設定 -->
+                <div class="space-y-4 pt-2">
+                    <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-700/80 space-y-2">
+                        <label class="block text-sm font-bold text-slate-200 flex items-center">
+                            <i class="fa-solid fa-pen-to-square text-amber-400 mr-2"></i> 1. 未中獎自訂文字內容
+                        </label>
+                        <input type="text" id="cfg-lose-text" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400" value="銘謝惠顧 🍀">
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-200">2. 大盤中獎獎項清單 (自訂數量與名稱)</label>
+                            </div>
+                            <button onclick="addPrizeConfigRow()" class="text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 px-3 py-1.5 rounded-lg transition font-medium">
+                                <i class="fa-solid fa-plus mr-1"></i> 新增獎項
+                            </button>
+                        </div>
+                        <div id="prize-config-list" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex flex-wrap gap-3">
+                    <button onclick="saveAndGenerateQRCode()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl transition shadow-lg flex items-center">
+                        <i class="fa-solid fa-qrcode mr-2"></i> 開啟新一盤雲端活動並更新 QR Code
+                    </button>
+                </div>
+            </div>
+
+            <!-- 機台 QR Code 區 -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col md:flex-row items-center gap-6">
+                <div class="bg-white p-4 rounded-xl shadow-inner border flex items-center justify-center" id="qrcode-box">
+                    <div id="qrcode"></div>
+                </div>
+                <div class="flex-1 space-y-3 text-center md:text-left">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-white flex items-center justify-center md:justify-start">
+                            <i class="fa-solid fa-share-nodes text-amber-400 mr-2"></i> 機台專屬固定 QR Code (v19 雲端同步版)
+                        </h3>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">雲端同步・無縫連接</span>
+                    </div>
+                    <p class="text-xs text-slate-400">無論使用 LINE、手機瀏覽器或電腦開啟，皆會即時同步雲端開獎狀態！</p>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="share-url" readonly class="flex-1 bg-slate-900 border border-slate-700 text-slate-300 px-3 py-2 rounded-lg text-xs font-mono select-all">
+                        <button onclick="copyShareUrl()" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-medium text-amber-400 transition">
+                            <i class="fa-solid fa-copy mr-1"></i> 複製連結
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 答案卡 -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-amber-500/40 shadow-xl space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-amber-400 flex items-center">
+                        <i class="fa-solid fa-map-location-dot mr-2"></i> 🗺️ 本次大盤完整答案卡 (雲端即時狀態)
+                    </h3>
+                    <button onclick="refreshAdminData()" class="text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 px-3 py-1.5 rounded-lg transition font-medium">
+                        <i class="fa-solid fa-rotate mr-1"></i> 重新整理雲端狀態
+                    </button>
+                </div>
+                <div id="answer-card-grid" class="answer-grid"></div>
+            </div>
+
+            <!-- 後台即時刮卡歷程記錄 -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-amber-400 flex items-center">
+                        <i class="fa-solid fa-clock-rotate-left mr-2"></i> 📜 本大盤雲端即時刮卡歷程記錄 (後台檢閱)
+                    </h3>
+                    <span class="text-xs text-slate-400" id="admin-scratch-history-count">已紀錄: 0 筆</span>
+                </div>
+                <div class="overflow-x-auto max-h-80 overflow-y-auto rounded-lg border border-slate-700">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-900 text-slate-300 sticky top-0 border-b border-slate-700">
+                            <tr>
+                                <th class="p-2.5 font-medium w-12 text-center">序號</th>
+                                <th class="p-2.5 font-medium">LINE暱稱</th>
+                                <th class="p-2.5 font-medium">日期</th>
+                                <th class="p-2.5 font-medium">刮開時間</th>
+                                <th class="p-2.5 font-medium">格位</th>
+                                <th class="p-2.5 font-medium">是否中獎 / 獎項內容</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-scratch-history-tbody" class="divide-y divide-slate-700/50 text-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 顧客刮刮樂體驗頁面 ================= -->
+        <section id="customer-view" class="hidden space-y-6">
+            <div id="board-finished-view" class="hidden bg-slate-800 p-8 rounded-2xl border border-amber-500/50 text-center space-y-4 max-w-md mx-auto shadow-2xl my-12">
+                <div class="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+                    <i class="fa-solid fa-flag-checkered"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">本盤刮刮樂活動已圓滿結束！</h2>
+                <p class="text-xs text-slate-300">本大盤所有大獎已被幸運顧客全數刮完，活動圓滿結束。</p>
+            </div>
+
+            <div id="active-scratch-area" class="space-y-4">
+                <div class="text-center space-y-1">
+                    <h1 id="disp-title" class="text-2xl md:text-3xl font-extrabold text-amber-400">🎁 夾物達人專屬幸運大刮刮樂</h1>
+                    <p class="text-xs md:text-sm text-slate-400">點擊或微刮任意格子即可秒速開獎！</p>
+                </div>
+
+                <div class="bg-slate-800/90 max-w-4xl mx-auto p-3.5 rounded-xl border border-slate-700 shadow-lg grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs md:text-sm">
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-slate-400">夾出商品</span>
+                        <span class="font-bold text-white text-base" id="disp-caught-count">0</span> <span class="text-[10px] text-slate-400">樣</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-slate-400">本輪獲得</span>
+                        <span class="font-bold text-amber-400 text-base" id="disp-total-scratches">0</span> <span class="text-[10px] text-slate-400">刮</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-slate-400">本輪剩餘</span>
+                        <span class="font-bold text-rose-400 text-base" id="disp-remaining-scratches">0</span> <span class="text-[10px] text-slate-400">刮</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-slate-400">大盤未刮</span>
+                        <span class="font-bold text-emerald-400 text-base" id="disp-board-remaining">0</span> <span class="text-[10px] text-slate-400">格</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-amber-300 font-medium">✨ 中獎率</span>
+                        <span class="font-bold text-amber-400 text-base" id="disp-win-rate">0%</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-emerald-300 font-medium">🎁 剩餘獎項</span>
+                        <span class="font-bold text-emerald-400 text-base" id="disp-remaining-prizes">0</span> <span class="text-[10px] text-slate-400">個</span>
+                    </div>
+                </div>
+
+                <div class="max-w-4xl mx-auto overflow-x-auto p-1 bg-slate-950/40 rounded-xl border border-slate-800">
+                    <div id="scratch-grid-container" class="grid-layout"></div>
+                </div>
+
+                <!-- 歷史歷程表格 -->
+                <div class="bg-slate-800/90 max-w-4xl mx-auto p-4 rounded-2xl border border-slate-700 shadow-xl space-y-3 mt-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-amber-400 flex items-center">
+                            <i class="fa-solid fa-clock-rotate-left mr-2"></i> 📜 本大盤雲端即時刮卡歷程記錄 (依序往下)
+                        </h3>
+                        <span class="text-xs text-slate-400" id="scratch-history-count">已紀錄: 0 筆</span>
+                    </div>
+                    <div class="overflow-x-auto max-h-64 overflow-y-auto rounded-lg border border-slate-700">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead class="bg-slate-900 text-slate-300 sticky top-0 border-b border-slate-700">
+                                <tr>
+                                    <th class="p-2.5 font-medium w-12 text-center">序號</th>
+                                    <th class="p-2.5 font-medium">LINE暱稱</th>
+                                    <th class="p-2.5 font-medium">日期</th>
+                                    <th class="p-2.5 font-medium">刮開時間</th>
+                                    <th class="p-2.5 font-medium">格位</th>
+                                    <th class="p-2.5 font-medium">是否中獎</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scratch-history-tbody" class="divide-y divide-slate-700/50 text-slate-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 彈窗 1：輸入夾物數量 -->
+    <div id="input-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-amber-500/50 p-6 md:p-8 rounded-2xl max-w-sm w-full text-center space-y-5 shadow-2xl">
+            <div class="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+                <i class="fa-solid fa-bag-shopping"></i>
+            </div>
+            <div class="space-y-1">
+                <h3 class="text-xl font-bold text-white">歡迎來到刮刮樂專區！</h3>
+                <p class="text-xs text-slate-300">請輸入您剛剛在機台夾出的商品總數量：</p>
+            </div>
+            <div>
+                <input type="number" id="user-input-caught" min="1" max="100" value="1" class="w-full bg-slate-900 border-2 border-amber-500/60 rounded-xl px-4 py-3 text-center text-2xl font-black text-amber-400 focus:outline-none focus:border-amber-400">
+                <p class="text-[11px] text-slate-400 mt-1.5" id="ratio-hint">換算規則：每夾 1 樣可獲得 1 次刮獎機會</p>
+            </div>
+            <button onclick="confirmCaughtItems()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl transition shadow-lg text-base">
+                確認數量，進入大盤刮獎！
+            </button>
+        </div>
+    </div>
+
+    <!-- 彈窗 1.5：輸入官方客服 LINE 暱稱 -->
+    <div id="line-name-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-amber-500/50 p-6 md:p-8 rounded-2xl max-w-sm w-full text-center space-y-5 shadow-2xl">
+            <div class="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+                <i class="fa-brands fa-line"></i>
+            </div>
+            <div class="space-y-1">
+                <h3 class="text-xl font-bold text-white">填寫領獎身分</h3>
+                <p class="text-xs text-slate-300">請輸入抽獎人官方客服 LINE 暱稱：</p>
+            </div>
+            <div>
+                <input type="text" id="user-input-line-name" placeholder="例如：阿偉 / 小美" class="w-full bg-slate-900 border-2 border-amber-500/60 rounded-xl px-4 py-3 text-center text-lg font-bold text-white focus:outline-none focus:border-amber-400">
+                <p class="text-[11px] text-slate-400 mt-1.5">中獎後憑此暱稱截圖聯繫店家領獎</p>
+            </div>
+            <button onclick="confirmLineName()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl transition shadow-lg text-base">
+                確認暱稱，開始抽獎！
+            </button>
+        </div>
+    </div>
+
+    <!-- 彈窗 2：系統載入中提示 -->
+    <div id="loading-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-amber-500/50 p-6 md:p-8 rounded-2xl max-w-xs w-full text-center space-y-4 shadow-2xl">
+            <div class="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl animate-spin">
+                <i class="fa-solid fa-spinner"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">系統抽獎中 請稍後</h3>
+            <p class="text-xs text-slate-400">正在與雲端同步並確認獎項...</p>
+        </div>
+    </div>
+
+    <!-- 彈窗 3：開獎結果 -->
+    <div id="result-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-amber-500/50 p-6 md:p-8 rounded-2xl max-w-sm w-full text-center space-y-4 shadow-2xl">
+            <div id="result-modal-icon" class="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h3 id="result-modal-title" class="text-xl font-bold text-white">開獎結果</h3>
+            <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-700 text-amber-300 text-sm font-bold space-y-1.5 max-h-48 overflow-y-auto text-center" id="modal-prize-summary"></div>
+            <button id="modal-confirm-btn" onclick="closeResultModal()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl transition shadow-lg text-sm">
+                好的，我知道了
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let appConfig = {
+            boardId: "board_v19_" + Date.now().toString(36),
+            title: "🎁 夾物達人專屬幸運大刮刮樂",
+            gridSize: 40,
+            ratio: 1,
+            lockEnable: true,
+            askLineName: true,
+            adminPassword: "8888",
+            coatColor: "#94a3b8",
+            bgColor: "#fffbeb",
+            winFontColor: "#dc2626",
+            winFontSize: "11px",
+            winFontWeight: "bold",
+            loseText: "銘謝惠顧 🍀",
+            loseFontColor: "#64748b",
+            loseFontSize: "10px",
+            loseFontWeight: "normal",
+            webhookUrl: "",
+            prizesConfig: [
+                { name: "🎉 頭獎：大公仔乙隻", count: 2 },
+                { name: "🎁 二獎：精美盲盒乙個", count: 3 },
+                { name: "🥤 三獎：飲品兌換券", count: 5 }
+            ]
+        };
+
+        let currentBoardState = [];
+        let currentUserId = "user_" + Math.random().toString(36).substr(2, 6);
+        let customerLineName = localStorage.getItem('customer_line_name') || "";
+        let caughtItemsCount = 0;
+        let allowedScratches = 0;
+        let roundScratchedCount = 0;
+        let qrCodeInstance = null;
+        let currentViewMode = "admin";
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            loadConfigFromURL();
+            initAdminInputs();
+            renderPrizeConfigRows();
+            
+            if (currentViewMode === 'customer') {
+                await switchView('customer');
+            } else {
+                await syncLoadBoardState();
+                initAdminInputs();
+                renderPrizeConfigRows();
+                generateQRCode();
+                renderAnswerCardGrid();
+                renderScratchHistoryTable();
+            }
+        });
+
+        function switchViewWithPassword(targetView) {
+            if (targetView === 'admin' && currentViewMode === 'customer') {
+                const inputPwd = prompt("🔒 請輸入店家後台管理密碼：", "");
+                if (inputPwd === null) return;
+                const validPwd = appConfig.adminPassword || "8888";
+                if (inputPwd.trim() !== validPwd) {
+                    alert("❌ 密碼錯誤！無法進入店家後台。");
+                    return;
+                }
+            }
+            switchView(targetView);
+        }
+
+        async function switchView(view) {
+            currentViewMode = view;
+            const adminSec = document.getElementById('admin-view');
+            const custSec = document.getElementById('customer-view');
+            const btnAdmin = document.getElementById('btn-view-admin');
+            const btnCust = document.getElementById('btn-view-customer');
+
+            if (view === 'admin') {
+                adminSec.classList.remove('hidden');
+                custSec.classList.add('hidden');
+                btnAdmin.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition bg-amber-500 text-slate-950 font-bold hover:bg-amber-400";
+                btnCust.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition bg-slate-700 text-slate-200 hover:bg-slate-600";
+                await syncLoadBoardState();
+                renderAnswerCardGrid();
+                renderScratchHistoryTable();
+            } else {
+                adminSec.classList.add('hidden');
+                custSec.classList.remove('hidden');
+                btnCust.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition bg-amber-500 text-slate-950 font-bold hover:bg-amber-400";
+                btnAdmin.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition bg-slate-700 text-slate-200 hover:bg-slate-600";
+                await checkCustomerState();
+            }
+        }
+
+        function initAdminInputs() {
+            document.getElementById('cfg-title').value = appConfig.title;
+            document.getElementById('cfg-grid-size').value = appConfig.gridSize;
+            document.getElementById('cfg-ratio').value = appConfig.ratio;
+            document.getElementById('cfg-lock-enable').checked = appConfig.lockEnable !== false;
+            document.getElementById('cfg-ask-line-name').checked = appConfig.askLineName !== false;
+            document.getElementById('cfg-admin-pwd').value = appConfig.adminPassword || "8888";
+            document.getElementById('cfg-coat-color').value = appConfig.coatColor;
+            document.getElementById('cfg-bg-color').value = appConfig.bgColor;
+            document.getElementById('cfg-win-font-color').value = appConfig.winFontColor;
+            document.getElementById('cfg-win-font-size').value = appConfig.winFontSize || "11px";
+            document.getElementById('cfg-win-font-weight').value = appConfig.winFontWeight || "bold";
+            document.getElementById('cfg-lose-text').value = appConfig.loseText || "銘謝惠顧 🍀";
+            document.getElementById('cfg-lose-font-color').value = appConfig.loseFontColor;
+            document.getElementById('cfg-lose-font-size').value = appConfig.loseFontSize || "10px";
+            document.getElementById('cfg-lose-font-weight').value = appConfig.loseFontWeight || "normal";
+            document.getElementById('cfg-webhook').value = appConfig.webhookUrl;
+        }
+
+        function renderPrizeConfigRows() {
+            const list = document.getElementById('prize-config-list');
+            list.innerHTML = '';
+            appConfig.prizesConfig.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.className = "flex items-center space-x-2 bg-slate-900 p-2 rounded-lg border border-slate-700";
+                row.innerHTML = `
+                    <span class="text-xs text-slate-400 font-mono w-6">#${idx+1}</span>
+                    <input type="text" value="${p.name}" onchange="updatePrizeName(${idx}, this.value)" placeholder="獎項名稱" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-white focus:outline-none focus:border-amber-400">
+                    <div class="flex items-center space-x-1">
+                        <span class="text-xs text-slate-400">數量:</span>
+                        <input type="number" min="1" value="${p.count}" onchange="updatePrizeCount(${idx}, this.value)" class="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-amber-400">
+                    </div>
+                    <button onclick="removePrizeConfigRow(${idx})" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-trash"></i></button>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function addPrizeConfigRow() {
+            appConfig.prizesConfig.push({ name: "🎁 幸運小獎乙份", count: 2 });
+            renderPrizeConfigRows();
+        }
+
+        function removePrizeConfigRow(idx) {
+            if (appConfig.prizesConfig.length <= 1) return alert("至少需保留一個中獎項目！");
+            appConfig.prizesConfig.splice(idx, 1);
+            renderPrizeConfigRows();
+        }
+
+        function updatePrizeName(idx, val) { appConfig.prizesConfig[idx].name = val; }
+        function updatePrizeCount(idx, val) { appConfig.prizesConfig[idx].count = parseInt(val) || 1; }
+
+        async function saveAndGenerateQRCode() {
+            appConfig.title = document.getElementById('cfg-title').value.trim();
+            appConfig.gridSize = parseInt(document.getElementById('cfg-grid-size').value) || 40;
+            appConfig.ratio = parseInt(document.getElementById('cfg-ratio').value) || 1;
+            appConfig.lockEnable = document.getElementById('cfg-lock-enable').checked;
+            appConfig.askLineName = document.getElementById('cfg-ask-line-name').checked;
+            appConfig.adminPassword = document.getElementById('cfg-admin-pwd').value.trim() || "8888";
+            appConfig.coatColor = document.getElementById('cfg-coat-color').value;
+            appConfig.bgColor = document.getElementById('cfg-bg-color').value;
+            appConfig.winFontColor = document.getElementById('cfg-win-font-color').value;
+            appConfig.winFontSize = document.getElementById('cfg-win-font-size').value;
+            appConfig.winFontWeight = document.getElementById('cfg-win-font-weight').value;
+            appConfig.loseText = document.getElementById('cfg-lose-text').value.trim() || "銘謝惠顧 🍀";
+            appConfig.loseFontColor = document.getElementById('cfg-lose-font-color').value;
+            appConfig.loseFontSize = document.getElementById('cfg-lose-font-size').value;
+            appConfig.loseFontWeight = document.getElementById('cfg-lose-font-weight').value;
+            appConfig.webhookUrl = document.getElementById('cfg-webhook').value.trim();
+            appConfig.boardId = "b_v19_" + Date.now().toString(36);
+
+            localStorage.setItem('active_board_id', appConfig.boardId);
+            localStorage.setItem('active_webhook', appConfig.webhookUrl);
+
+            initLocalBoardState();
+            await syncSaveBoardStateToCloud();
+
+            generateQRCode();
+            renderAnswerCardGrid();
+            renderScratchHistoryTable();
+            alert("✅ 新雲端大盤活動已成功開啟！所有裝置現在透過雲端同步連線。");
+        }
+
+        function generateQRCode() {
+            let shareUrl = "";
+            if (appConfig.webhookUrl && appConfig.webhookUrl.trim() !== "") {
+                const params = new URLSearchParams();
+                params.set("id", appConfig.boardId);
+                params.set("wh", appConfig.webhookUrl.trim());
+                shareUrl = `${window.location.origin}${window.location.pathname}#${params.toString()}`;
+            } else {
+                const fullConfigPayload = {
+                    b: appConfig.boardId,
+                    t: appConfig.title,
+                    g: appConfig.gridSize,
+                    r: appConfig.ratio,
+                    lk: appConfig.lockEnable !== false ? 1 : 0,
+                    al: appConfig.askLineName !== false ? 1 : 0,
+                    pw: appConfig.adminPassword,
+                    cc: appConfig.coatColor,
+                    bg: appConfig.bgColor,
+                    wfc: appConfig.winFontColor,
+                    wfs: appConfig.winFontSize,
+                    wfw: appConfig.winFontWeight,
+                    lt: appConfig.loseText,
+                    lfc: appConfig.loseFontColor,
+                    lfs: appConfig.loseFontSize,
+                    lfw: appConfig.loseFontWeight,
+                    wh: "",
+                    p: appConfig.prizesConfig.map(x => [x.name, x.count])
+                };
+                const encoded = encodeURIComponent(JSON.stringify(fullConfigPayload));
+                shareUrl = `${window.location.origin}${window.location.pathname}#b=${encoded}`;
+            }
+            
+            document.getElementById('share-url').value = shareUrl;
+
+            const qrBox = document.getElementById('qrcode');
+            qrBox.innerHTML = '';
+            qrCodeInstance = new QRCode(qrBox, {
+                text: shareUrl,
+                width: 240,
+                height: 240,
+                colorDark : "#0f172a",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.L
+            });
+        }
+
+        function loadConfigFromURL() {
+            const hash = window.location.hash;
+            if (hash.startsWith('#id=')) {
+                try {
+                    const params = new URLSearchParams(hash.substring(1));
+                    const id = params.get("id");
+                    const wh = params.get("wh");
+                    if (id) {
+                        appConfig.boardId = id;
+                        appConfig.webhookUrl = wh || "";
+                        localStorage.setItem('active_board_id', appConfig.boardId);
+                        localStorage.setItem('active_webhook', appConfig.webhookUrl);
+                        currentViewMode = 'customer';
+                        const adminBtn = document.getElementById('btn-view-admin');
+                        if (adminBtn) adminBtn.classList.add('hidden');
+                        return;
+                    }
+                } catch(e) {}
+            } else if (hash.startsWith('#b=')) {
+                try {
+                    const raw = hash.replace('#b=', '');
+                    const parsed = JSON.parse(decodeURIComponent(raw));
+                    if (parsed && parsed.b) {
+                        appConfig.boardId = parsed.b;
+                        appConfig.title = parsed.t || appConfig.title;
+                        appConfig.gridSize = parsed.g || appConfig.gridSize;
+                        appConfig.ratio = parsed.r || appConfig.ratio;
+                        appConfig.lockEnable = parsed.lk !== 0;
+                        appConfig.askLineName = parsed.al !== 0;
+                        appConfig.adminPassword = parsed.pw || appConfig.adminPassword;
+                        appConfig.coatColor = parsed.cc || appConfig.coatColor;
+                        appConfig.bgColor = parsed.bg || appConfig.bgColor;
+                        appConfig.winFontColor = parsed.wfc || appConfig.winFontColor;
+                        appConfig.winFontSize = parsed.wfs || appConfig.winFontSize;
+                        appConfig.winFontWeight = parsed.wfw || appConfig.winFontWeight;
+                        appConfig.loseText = parsed.lt || appConfig.loseText;
+                        appConfig.loseFontColor = parsed.lfc || appConfig.loseFontColor;
+                        appConfig.loseFontSize = parsed.lfs || appConfig.loseFontSize;
+                        appConfig.loseFontWeight = parsed.lfw || appConfig.loseFontWeight;
+                        appConfig.webhookUrl = parsed.wh || "";
+                        if (parsed.p) {
+                            appConfig.prizesConfig = parsed.p.map(x => ({ name: x[0], count: x[1] }));
+                        }
+                        localStorage.setItem('active_board_id', appConfig.boardId);
+                        localStorage.setItem('active_webhook', appConfig.webhookUrl);
+                        currentViewMode = 'customer';
+                        const adminBtn = document.getElementById('btn-view-admin');
+                        if (adminBtn) adminBtn.classList.add('hidden');
+                        return;
+                    }
+                } catch(e) {}
+            } else {
+                const savedActiveId = localStorage.getItem('active_board_id');
+                const savedWebhook = localStorage.getItem('active_webhook');
+                if (savedActiveId) appConfig.boardId = savedActiveId;
+                if (savedWebhook) appConfig.webhookUrl = savedWebhook;
+            }
+        }
+
+        function copyShareUrl() {
+            const input = document.getElementById('share-url');
+            input.select();
+            document.execCommand('copy');
+            alert("📋 同步遊戲連結已複製！");
+        }
+
+        async function syncLoadBoardState() {
+            const webhook = appConfig.webhookUrl;
+            const statusEl = document.getElementById('sync-status');
+            
+            if (!webhook) {
+                statusEl.innerHTML = `<i class="fa-solid fa-circle text-amber-400 mr-1 text-[8px]"></i> 本地模式 (未設定 Webhook)`;
+                loadOrCreateLocalBoardState();
+                return;
+            }
+
+            statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-amber-400 mr-1"></i> 正在同步雲端資料...`;
+
+            try {
+                initLocalBoardState();
+
+                const response = await fetch(webhook, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "getBoard",
+                        boardId: appConfig.boardId,
+                        config: appConfig,
+                        state: currentBoardState
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.status === "success" && result.state) {
+                    if (result.config) {
+                        appConfig = { ...appConfig, ...result.config };
+                    }
+                    let localCached = [];
+                    try {
+                        const rawLocal = localStorage.getItem('board_state_' + appConfig.boardId);
+                        if (rawLocal) localCached = JSON.parse(rawLocal);
+                    } catch(e) {}
+
+                    currentBoardState = result.state.map((cell, i) => {
+                        const cachedCell = localCached[i] || {};
+                        const resolvedLineName = (cell.lineName && cell.lineName !== "訪客")
+                            ? cell.lineName
+                            : (cachedCell.lineName && cachedCell.lineName !== "訪客" ? cachedCell.lineName : (cell.lineName || ""));
+                        return {
+                            ...cell,
+                            lineName: resolvedLineName
+                        };
+                    });
+                    saveLocalBoardState();
+                    statusEl.innerHTML = `<i class="fa-solid fa-circle text-emerald-400 mr-1 text-[8px]"></i> 雲端已連線同步`;
+                } else {
+                    statusEl.innerHTML = `<i class="fa-solid fa-circle text-rose-400 mr-1 text-[8px]"></i> 雲端載入失敗，使用本地`;
+                }
+            } catch(err) {
+                statusEl.innerHTML = `<i class="fa-solid fa-circle text-amber-400 mr-1 text-[8px]"></i> 離線模式 (使用本地)`;
+                loadOrCreateLocalBoardState();
+            }
+        }
+
+        async function syncSaveBoardStateToCloud() {
+            const webhook = appConfig.webhookUrl;
+            if (!webhook) return;
+
+            try {
+                await fetch(webhook, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "getBoard",
+                        boardId: appConfig.boardId,
+                        config: appConfig,
+                        state: currentBoardState
+                    })
+                });
+            } catch(err) {}
+        }
+
+        async function syncRevealCellToCloud(index, dateStr, timeStr, timestamp, lineName) {
+            const webhook = appConfig.webhookUrl;
+            if (!webhook) return true;
+
+            try {
+                const response = await fetch(webhook, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "revealCell",
+                        boardId: appConfig.boardId,
+                        cellIndex: index,
+                        revealDate: dateStr,
+                        revealTime: timeStr,
+                        timestamp: timestamp,
+                        userId: currentUserId,
+                        lineName: lineName || "訪客",
+                        lockEnable: appConfig.lockEnable !== false
+                    })
+                });
+                const res = await response.json();
+                if (res.status === "locked") {
+                    alert(`⚠️ 目前有其他顧客正在刮獎中，請稍候！(剩餘保護時間：${res.remainingSec} 秒)`);
+                    return false;
+                }
+                if (res.status === "success" && res.state) {
+                    currentBoardState = res.state.map((cell, i) => {
+                        const prevCell = currentBoardState[i] || {};
+                        if (i === index) {
+                            return { ...cell, lineName: lineName || cell.lineName || "訪客" };
+                        }
+                        const resolvedName = (cell.lineName && cell.lineName !== "訪客")
+                            ? cell.lineName
+                            : (prevCell.lineName || cell.lineName || "");
+                        return { ...cell, lineName: resolvedName };
+                    });
+                    saveLocalBoardState();
+                    return true;
+                }
+            } catch(err) {}
+            return true;
+        }
+
+        function initLocalBoardState() {
+            const loseString = appConfig.loseText || "銘謝惠顧 🍀";
+            let pool = [];
+            appConfig.prizesConfig.forEach(p => {
+                for(let i=0; i<p.count; i++) {
+                    pool.push({ prize: p.name, isWin: true });
+                }
+            });
+            const remainder = appConfig.gridSize - pool.length;
+            for(let i=0; i<remainder; i++) {
+                pool.push({ prize: loseString, isWin: false });
+            }
+
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+
+            currentBoardState = pool.map(item => ({ revealed: false, prize: item.prize, isWin: item.isWin, revealDate: null, revealTime: null, lineName: "", timestamp: 0 }));
+            saveLocalBoardState();
+        }
+
+        function loadOrCreateLocalBoardState() {
+            const saved = localStorage.getItem('board_state_' + appConfig.boardId);
+            if (saved) {
+                try {
+                    currentBoardState = JSON.parse(saved);
+                    return;
+                } catch(e) {}
+            }
+            initLocalBoardState();
+        }
+
+        function saveLocalBoardState() {
+            localStorage.setItem('board_state_' + appConfig.boardId, JSON.stringify(currentBoardState));
+        }
+
+        function renderAnswerCardGrid() {
+            const container = document.getElementById('answer-card-grid');
+            container.innerHTML = '';
+
+            currentBoardState.forEach((cellData, idx) => {
+                const cell = document.createElement('div');
+                cell.className = 'answer-cell';
+                
+                if (cellData.isWin) {
+                    cell.className += ' bg-amber-500/20 text-amber-300 border border-amber-500/60 font-bold';
+                    cell.innerHTML = `<span class="text-[8px] opacity-70">#${idx+1}</span><span class="text-[9px] text-amber-200 font-extrabold truncate w-full px-0.5">${cellData.prize}</span>`;
+                } else {
+                    cell.className += ' bg-slate-900 text-slate-400 border border-slate-700/60';
+                    cell.innerHTML = `<span class="text-[8px] opacity-50">#${idx+1}</span><span class="text-[8px] text-slate-400 truncate w-full px-0.5">${cellData.prize}</span>`;
+                }
+
+                if (cellData.revealed) {
+                    cell.innerHTML += `<span class="text-[7px] bg-emerald-500 text-slate-950 px-1 rounded mt-0.5 font-bold">已刮</span>`;
+                }
+                container.appendChild(cell);
+            });
+        }
+
+        async function checkCustomerState() {
+            customerLineName = "";
+            document.getElementById('user-input-line-name').value = "";
+            document.getElementById('input-modal').classList.add('hidden');
+            document.getElementById('line-name-modal').classList.add('hidden');
+            document.getElementById('loading-modal').classList.remove('hidden');
+
+            await syncLoadBoardState();
+
+            document.getElementById('loading-modal').classList.add('hidden');
+
+            const unrevealed = currentBoardState.filter(c => !c.revealed).length;
+            const remainingPrizes = currentBoardState.filter(c => !c.revealed && c.isWin).length;
+
+            if (unrevealed === 0 || remainingPrizes === 0) {
+                document.getElementById('board-finished-view').classList.remove('hidden');
+                document.getElementById('active-scratch-area').classList.add('hidden');
+                renderScratchHistoryTable();
+                return;
+            }
+
+            document.getElementById('board-finished-view').classList.add('hidden');
+            document.getElementById('active-scratch-area').classList.remove('hidden');
+            document.getElementById('ratio-hint').innerText = `換算規則：每夾 ${appConfig.ratio} 樣可獲得 1 次刮獎機會`;
+            
+            initCustomerRoundGridOnly();
+            renderScratchHistoryTable();
+
+            document.getElementById('input-modal').classList.remove('hidden');
+        }
+
+        function confirmCaughtItems() {
+            const val = parseInt(document.getElementById('user-input-caught').value);
+            if (isNaN(val) || val <= 0) return alert("請輸入有效的商品數量！");
+            
+            caughtItemsCount = val;
+            document.getElementById('input-modal').classList.add('hidden');
+
+            if (appConfig.askLineName !== false) {
+                document.getElementById('user-input-line-name').value = customerLineName || "";
+                document.getElementById('line-name-modal').classList.remove('hidden');
+                setTimeout(() => document.getElementById('user-input-line-name').focus(), 100);
+            } else {
+                initCustomerRound();
+            }
+        }
+
+        function confirmLineName() {
+            const nameVal = document.getElementById('user-input-line-name').value.trim();
+            if (!nameVal) return alert("請輸入您的 LINE 暱稱！");
+            
+            customerLineName = nameVal;
+            localStorage.setItem('customer_line_name', customerLineName);
+            document.getElementById('line-name-modal').classList.add('hidden');
+
+            initCustomerRound();
+        }
+
+        function initCustomerRound() {
+            document.getElementById('disp-title').innerText = appConfig.title;
+            document.getElementById('disp-caught-count').innerText = caughtItemsCount;
+
+            const unrevealedCount = currentBoardState.filter(c => !c.revealed).length;
+
+            allowedScratches = Math.min(unrevealedCount, Math.floor(caughtItemsCount / appConfig.ratio));
+            if (allowedScratches < 1 && caughtItemsCount > 0 && unrevealedCount > 0) allowedScratches = 1;
+
+            roundScratchedCount = 0;
+            updateStatusDisplays();
+            renderGridBoard();
+            renderScratchHistoryTable();
+        }
+
+        function initCustomerRoundGridOnly() {
+            document.getElementById('disp-title').innerText = appConfig.title;
+            const unrevealedCount = currentBoardState.filter(c => !c.revealed).length;
+            if (allowedScratches === 0) {
+                allowedScratches = unrevealedCount;
+            }
+            updateStatusDisplays();
+            renderGridBoard();
+        }
+
+        function updateStatusDisplays() {
+            const remainingRound = Math.max(0, allowedScratches - roundScratchedCount);
+            const unrevealedBoard = currentBoardState.filter(c => !c.revealed).length;
+
+            const totalPrizes = currentBoardState.filter(c => c.isWin).length;
+            const winRate = ((totalPrizes / appConfig.gridSize) * 100).toFixed(1);
+            const remainingPrizes = currentBoardState.filter(c => !c.revealed && c.isWin).length;
+
+            document.getElementById('disp-total-scratches').innerText = allowedScratches;
+            document.getElementById('disp-remaining-scratches').innerText = remainingRound;
+            document.getElementById('disp-board-remaining').innerText = unrevealedBoard;
+            document.getElementById('disp-win-rate').innerText = `${winRate}%`;
+            document.getElementById('disp-remaining-prizes').innerText = remainingPrizes;
+        }
+
+        function renderGridBoard() {
+            const container = document.getElementById('scratch-grid-container');
+            container.innerHTML = '';
+
+            currentBoardState.forEach((cellData, idx) => {
+                const cell = document.createElement('div');
+                cell.className = 'scratch-cell';
+
+                const prizeLayer = document.createElement('div');
+                prizeLayer.className = 'prize-layer';
+                prizeLayer.style.backgroundColor = appConfig.bgColor || '#fffbeb';
+                
+                if (cellData.isWin) {
+                    prizeLayer.style.color = appConfig.winFontColor || '#dc2626';
+                    prizeLayer.style.fontSize = appConfig.winFontSize || '11px';
+                    prizeLayer.style.fontWeight = appConfig.winFontWeight || 'bold';
+                } else {
+                    prizeLayer.style.color = appConfig.loseFontColor || '#64748b';
+                    prizeLayer.style.fontSize = appConfig.loseFontSize || '10px';
+                    prizeLayer.style.fontWeight = appConfig.loseFontWeight || 'normal';
+                }
+
+                prizeLayer.innerHTML = `<span>${cellData.prize}</span>`;
+                cell.appendChild(prizeLayer);
+
+                if (!cellData.revealed) {
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'canvas-layer';
+                    cell.appendChild(canvas);
+                    setupScratchCanvas(canvas, idx);
+                }
+
+                container.appendChild(cell);
+            });
+        }
+
+        function setupScratchCanvas(canvas, index) {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width || 48;
+            canvas.height = rect.height || 48;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = appConfig.coatColor || "#94a3b8";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+            ctx.font = "bold 9px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(`#${index+1}`, canvas.width / 2, canvas.height / 2);
+
+            async function executeInstantReveal() {
+                const remainingRound = allowedScratches - roundScratchedCount;
+                if (remainingRound <= 0 && allowedScratches > 0) {
+                    alert("您本輪的刮卡次數已用完！若重新夾出商品，請重新掃碼進行下一輪。");
+                    return;
+                }
+
+                document.getElementById('loading-modal').classList.remove('hidden');
+
+                await syncLoadBoardState();
+                if (currentBoardState[index].revealed) {
+                    document.getElementById('loading-modal').classList.add('hidden');
+                    alert("⚠️ 此格已經由其他裝置/顧客先一步刮開囉！請選擇其他格子。");
+                    renderGridBoard();
+                    return;
+                }
+
+                const now = new Date();
+                const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+                const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+                const timestamp = Date.now() + Math.random();
+                const lineName = customerLineName || "訪客";
+
+                const success = await syncRevealCellToCloud(index, dateStr, timeStr, timestamp, lineName);
+                
+                document.getElementById('loading-modal').classList.add('hidden');
+                if (!success) return;
+
+                currentBoardState[index].revealed = true;
+                currentBoardState[index].revealDate = dateStr;
+                currentBoardState[index].revealTime = timeStr;
+                currentBoardState[index].lineName = lineName;
+                currentBoardState[index].timestamp = timestamp;
+                saveLocalBoardState();
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                roundScratchedCount++;
+                updateStatusDisplays();
+                renderScratchHistoryTable();
+
+                setTimeout(() => showSingleResultModal(currentBoardState[index], index + 1), 200);
+            }
+
+            canvas.addEventListener('click', executeInstantReveal);
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                executeInstantReveal();
+            });
+            canvas.addEventListener('mousedown', (e) => {
+                executeInstantReveal();
+            });
+        }
+
+        async function refreshAdminData() {
+            await syncLoadBoardState();
+            renderAnswerCardGrid();
+            renderScratchHistoryTable();
+        }
+
+        function renderScratchHistoryTable() {
+            const targets = [
+                { tbody: document.getElementById('scratch-history-tbody'), badge: document.getElementById('scratch-history-count') },
+                { tbody: document.getElementById('admin-scratch-history-tbody'), badge: document.getElementById('admin-scratch-history-count') }
+            ];
+
+            let revealedItems = currentBoardState
+                .map((item, idx) => ({ ...item, originalIndex: idx + 1 }))
+                .filter(item => item.revealed)
+                .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+            targets.forEach(({ tbody, badge }) => {
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                if (badge) badge.innerText = `已紀錄: ${revealedItems.length} 筆`;
+
+                if (revealedItems.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">目前尚無刮開紀錄，快開始刮獎吧！</td></tr>`;
+                    return;
+                }
+
+                revealedItems.forEach((item, seq) => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-900/50 transition";
+                    
+                    const winBadge = item.isWin 
+                        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">🎉 中獎 (${item.prize})</span>`
+                        : `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">❌ ${item.prize}</span>`;
+
+                    tr.innerHTML = `
+                        <td class="p-2.5 font-mono text-slate-400 text-center">#${seq + 1}</td>
+                        <td class="p-2.5 text-amber-300 font-bold">${item.lineName || '訪客'}</td>
+                        <td class="p-2.5 font-mono text-slate-300">${item.revealDate || '-'}</td>
+                        <td class="p-2.5 font-mono text-amber-400">${item.revealTime || '-'}</td>
+                        <td class="p-2.5 font-mono text-slate-300 font-bold">格位 #${item.originalIndex}</td>
+                        <td class="p-2.5">${winBadge}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+        }
+
+        function showSingleResultModal(item, cellNum) {
+            const modal = document.getElementById('result-modal');
+            const icon = document.getElementById('result-modal-icon');
+            const title = document.getElementById('result-modal-title');
+            const summaryBox = document.getElementById('modal-prize-summary');
+            const btn = document.getElementById('modal-confirm-btn');
+
+            summaryBox.innerHTML = ``;
+
+            if (item.isWin) {
+                icon.className = "w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl";
+                icon.innerHTML = `<i class="fa-solid fa-trophy"></i>`;
+                title.innerText = "🎉 恭喜中獎！";
+                summaryBox.innerHTML = `<div class="text-amber-300 text-base font-extrabold py-2">格位 #${cellNum}：${item.prize}</div>`;
+                
+                btn.innerText = "恭喜中獎 請結圖本畫面聯繫店家";
+                btn.className = "w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-3 rounded-xl transition shadow-lg text-xs md:text-sm";
+
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                }
+            } else {
+                icon.className = "w-16 h-16 bg-slate-700/50 text-slate-400 rounded-full flex items-center justify-center mx-auto text-3xl";
+                icon.innerHTML = `<i class="fa-solid fa-face-smile"></i>`;
+                title.innerText = "開獎結果";
+                summaryBox.innerHTML = `<div class="text-slate-300 text-sm font-medium py-2">格位 #${cellNum}：${item.prize}</div>`;
+                
+                btn.innerText = "加油! 再接再厲";
+                btn.className = "w-full bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold py-3 rounded-xl transition text-sm";
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeResultModal() {
+            document.getElementById('result-modal').classList.add('hidden');
+            
+            const unrevealedBoard = currentBoardState.filter(c => !c.revealed).length;
+            const remainingPrizes = currentBoardState.filter(c => !c.revealed && c.isWin).length;
+            
+            if (unrevealedBoard === 0 || remainingPrizes === 0) {
+                document.getElementById('board-finished-view').classList.remove('hidden');
+                document.getElementById('active-scratch-area').classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
